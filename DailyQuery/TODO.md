@@ -16,7 +16,8 @@
 ### 中优先级 (Medium Priority)
 - [ ] 集成 Tailwind CSS 主题和深色模式
 - [ ] 配置文件系统监控 (Watch) 自动更新 Markdown 更改
-- [ ] CI/CD 自动发布配置校验
+- [x] CI/CD 自动发布配置校验
+- [x] **Task 6**: 在/workspace/DailyQuery中进行全链路联调、代码重构、单元测试。完成Web到APP的编译(如Tauri build)。提交代码至GitHub并验证CI/CD。
 
 ### 低优先级 (Low Priority)
 - [ ] 增加单元测试 (Rust) 和端到端测试 (Playwright)
