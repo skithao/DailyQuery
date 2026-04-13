@@ -12,17 +12,40 @@ pub struct Article {
 }
 
 pub async fn fetch_rss(url: &str) -> Result<Vec<Article>, anyhow::Error> {
-    let client = Client::new();
-    let content = client.get(url).send().await?.bytes().await?;
+    let client = Client::builder()
+        .user_agent("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/115.0.0.0 Safari/537.36")
+        .build()?;
+    
+    let res = client.get(url).send().await?;
+    let content = res.bytes().await?;
+    
     let channel = Channel::read_from(&content[..])?;
 
     let mut articles = Vec::new();
+    let converter = HtmlToMarkdown::builder().build();
+
     for item in channel.items() {
         if let (Some(title), Some(link)) = (item.title(), item.link()) {
+            // Extract description or content snippet to show in feed
+            let description = item.description().unwrap_or("");
+            // Some feeds put content in content:encoded extension
+            let content_encoded = item
+                .extensions()
+                .get("content")
+                .and_then(|c| c.get("encoded"))
+                .and_then(|e| e.first())
+                .map(|v| v.value().unwrap_or(""));
+                
+            let html_content = content_encoded.unwrap_or(description);
+            let markdown_snippet = converter.convert(html_content).unwrap_or_default();
+            
+            // Clean up multiple newlines
+            let clean_snippet = markdown_snippet.replace("\n\n", " ").replace('\n', " ");
+
             articles.push(Article {
-                title: title.to_string(),
+                title: title.trim().to_string(),
                 url: link.to_string(),
-                content: String::new(), // content is fetched later or from description
+                content: clean_snippet.trim().to_string(),
             });
         }
     }

@@ -5,7 +5,7 @@ import Link from "next/link";
 import { ThumbsUp, MessageCircle, Star, Share2, RefreshCw } from "lucide-react";
 import { useTranslation } from "@/lib/i18n/useTranslation";
 import { motion } from "framer-motion";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { invoke } from "@tauri-apps/api/core";
 
 // Define feed item type
@@ -17,7 +17,15 @@ type FeedItem = {
   upvotes: number;
   comments: number;
   cover?: string;
+  url?: string;
 };
+
+// RSS Sources configuration
+const RSS_SOURCES = [
+  { name: "36Kr", url: "https://36kr.com/feed" },
+  { name: "Hacker News", url: "https://hnrss.org/frontpage" },
+  { name: "V2EX", url: "https://v2ex.com/index.xml" },
+];
 
 const INITIAL_MOCK_FEED: FeedItem[] = [
   {
@@ -41,43 +49,55 @@ const INITIAL_MOCK_FEED: FeedItem[] = [
 
 export default function FeedPage() {
   const { t, language } = useTranslation();
-  const [feed, setFeed] = useState<FeedItem[]>(INITIAL_MOCK_FEED);
+  const [feed, setFeed] = useState<FeedItem[]>([]);
   const [isFetching, setIsFetching] = useState(false);
+
+  // Initial fetch on mount
+  useEffect(() => {
+    fetchRealData();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const fetchRealData = async () => {
     setIsFetching(true);
     try {
-      // Use Tauri command to fetch real RSS data (Hacker News or similar)
-      const query = language === 'zh' ? '人工智能 最新进展' : 'AI Latest News';
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const searchResults = await invoke<any[]>("search_web_command", { query });
+      const allArticles: FeedItem[] = [];
       
-      if (searchResults && searchResults.length > 0) {
-        const newFeed = searchResults.map((res: any, idx: number) => ({
-          id: `live-${Date.now()}-${idx}`,
-          title: res.title,
-          excerpt: res.snippet || "Click to read more details...",
-          author: "WebSearch",
-          upvotes: Math.floor(Math.random() * 500) + 10,
-          comments: Math.floor(Math.random() * 50),
-          cover: res.image || undefined,
-        }));
-        setFeed(prev => [...newFeed, ...prev]);
+      // Fetch all RSS sources concurrently
+      const fetchPromises = RSS_SOURCES.map(async (source) => {
+        try {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const articles = await invoke<any[]>("fetch_rss_command", { url: source.url });
+          return articles.map((article: any, idx: number) => ({
+            id: `rss-${source.name}-${Date.now()}-${idx}`,
+            title: article.title,
+            // Limit excerpt to 150 chars and remove some markdown artifacts if any
+            excerpt: (article.content || "Click to read more...").substring(0, 150) + "...",
+            author: source.name,
+            url: article.url,
+            upvotes: Math.floor(Math.random() * 500) + 10,
+            comments: Math.floor(Math.random() * 50),
+          }));
+        } catch (e) {
+          console.error(`Failed to fetch RSS from ${source.name}:`, e);
+          return [];
+        }
+      });
+
+      const results = await Promise.all(fetchPromises);
+      
+      // Flatten and shuffle slightly to mix sources
+      const combinedResults = results.flat().sort(() => Math.random() - 0.5);
+      
+      if (combinedResults.length > 0) {
+        setFeed(combinedResults);
+      } else {
+        // Fallback to mock if all RSS fetches fail
+        setFeed(INITIAL_MOCK_FEED);
       }
     } catch (err) {
       console.error("Failed to fetch real data, falling back to mock:", err);
-      // Fallback if Tauri fails (e.g. in browser)
-      setTimeout(() => {
-        const fallback = {
-          id: `mock-${Date.now()}`,
-          title: language === 'zh' ? "实时抓取的新闻标题" : "Real-time Fetched News Headline",
-          excerpt: language === 'zh' ? "通过底层 Rust 爬虫获取的真实数据内容摘要展示在这里..." : "Summary of real data fetched via underlying Rust crawler...",
-          author: "DailyQuery Crawler",
-          upvotes: 100,
-          comments: 10,
-        };
-        setFeed(prev => [fallback, ...prev]);
-      }, 1000);
+      setFeed(INITIAL_MOCK_FEED);
     } finally {
       setIsFetching(false);
     }
@@ -113,11 +133,17 @@ export default function FeedPage() {
           </button>
         </div>
 
+        {feed.length === 0 && isFetching && (
+          <div className="flex justify-center items-center py-20">
+            <RefreshCw size={32} className="animate-spin text-zinc-400" />
+          </div>
+        )}
+
         {feed.map((item, i) => (
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: i * 0.05, duration: 0.4, ease: [0.23, 1, 0.32, 1] }}
+            transition={{ delay: (i % 10) * 0.05, duration: 0.4, ease: [0.23, 1, 0.32, 1] }}
             key={item.id}
             className="group bg-white dark:bg-zinc-900/80 p-5 md:p-6 rounded-2xl border border-zinc-200/80 dark:border-zinc-800/80 transition-all duration-300 hover:shadow-md hover:border-zinc-300 dark:hover:border-zinc-700"
           >
@@ -152,10 +178,17 @@ export default function FeedPage() {
                 <MessageCircle size={15} />
                 <span>{item.comments}</span>
               </button>
-              <button className="flex items-center gap-1.5 hover:text-zinc-900 dark:hover:text-zinc-200 transition-colors">
-                <Share2 size={15} />
-                <span>{language === 'zh' ? '分享' : 'Share'}</span>
-              </button>
+              {item.url ? (
+                <a href={item.url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1.5 hover:text-zinc-900 dark:hover:text-zinc-200 transition-colors">
+                  <Share2 size={15} />
+                  <span>{language === 'zh' ? '原链接' : 'Source'}</span>
+                </a>
+              ) : (
+                <button className="flex items-center gap-1.5 hover:text-zinc-900 dark:hover:text-zinc-200 transition-colors">
+                  <Share2 size={15} />
+                  <span>{language === 'zh' ? '分享' : 'Share'}</span>
+                </button>
+              )}
               <button className="flex items-center gap-1.5 hover:text-zinc-900 dark:hover:text-zinc-200 transition-colors ml-auto">
                 <Star size={15} />
                 <span>{language === 'zh' ? '收藏' : 'Save'}</span>
