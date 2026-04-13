@@ -66,8 +66,35 @@ export default function FeedPage() {
       // Fetch all RSS sources concurrently
       const fetchPromises = RSS_SOURCES.map(async (source) => {
         try {
+          let articles = [];
+          
+          // Check if we are running inside Tauri (has window.__TAURI_INTERNALS__)
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          const articles = await invoke<any[]>("fetch_rss_command", { url: source.url });
+          if (typeof window !== 'undefined' && (window as any).__TAURI_INTERNALS__) {
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            articles = await invoke<any[]>("fetch_rss_command", { url: source.url });
+          } else {
+            // We are running in pure Web mode (Next.js dev server), Tauri IPC is not available.
+            // Use rss2json API to proxy the RSS fetch and bypass CORS in browser.
+            const proxyUrl = `https://api.rss2json.com/v1/api.json?rss_url=${encodeURIComponent(source.url)}&api_key=`;
+            const res = await fetch(proxyUrl);
+            const data = await res.json();
+            
+            if (data.status === "ok" && data.items) {
+              // Map rss2json format to match our Rust crawler format
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
+              articles = data.items.map((item: any) => ({
+                title: item.title,
+                url: item.link,
+                // Extract plain text from HTML content for excerpt
+                content: (item.content || item.description || "").replace(/<[^>]+>/g, '').replace(/&[a-z]+;/g, ' ')
+              }));
+            } else {
+              throw new Error("RSS Proxy returned error: " + data.message);
+            }
+          }
+          
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
           return articles.map((article: any, idx: number) => ({
             id: `rss-${source.name}-${Date.now()}-${idx}`,
             title: article.title,
