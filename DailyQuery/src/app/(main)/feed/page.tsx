@@ -3,6 +3,9 @@
 
 import Link from "next/link";
 import { ThumbsUp, MessageCircle, Star, Share2 } from "lucide-react";
+import { useTranslation } from "@/lib/i18n/useTranslation";
+import { motion } from "framer-motion";
+import { cn } from "@/lib/utils";
 
 const MOCK_FEED = [
   {
@@ -42,67 +45,77 @@ const MOCK_FEED = [
 ];
 
 export default function FeedPage() {
+  const { t, language } = useTranslation();
+
   return (
-    <div className="flex flex-col h-full bg-gray-100 dark:bg-gray-900 overflow-y-auto">
-      <header className="px-4 py-3 bg-white dark:bg-gray-950 shadow-sm sticky top-0 z-10 flex gap-6">
-        <span className="font-bold text-lg text-blue-600 dark:text-blue-400 border-b-2 border-blue-600 pb-2">
-          推荐
+    <div className="flex flex-col h-full bg-zinc-50/30 dark:bg-zinc-950/30 overflow-y-auto">
+      <header className="px-6 py-4 bg-white/60 dark:bg-zinc-900/60 backdrop-blur-xl border-b border-zinc-200/80 dark:border-zinc-800/80 sticky top-0 z-10 flex gap-8 items-center">
+        <span className="font-semibold text-base text-zinc-900 dark:text-zinc-100 border-b-2 border-zinc-900 dark:border-zinc-100 pb-1.5 transition-colors cursor-pointer">
+          {language === 'zh' ? '推荐' : 'Recommended'}
         </span>
-        <span className="font-medium text-lg text-gray-500 hover:text-gray-800 dark:hover:text-gray-200 cursor-pointer pb-2">
-          关注
+        <span className="font-medium text-base text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-300 transition-colors cursor-pointer pb-1.5">
+          {language === 'zh' ? '关注' : 'Following'}
         </span>
-        <span className="font-medium text-lg text-gray-500 hover:text-gray-800 dark:hover:text-gray-200 cursor-pointer pb-2">
-          热榜
+        <span className="font-medium text-base text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-300 transition-colors cursor-pointer pb-1.5">
+          {language === 'zh' ? '热榜' : 'Hot'}
         </span>
       </header>
 
-      <div className="flex-1 max-w-3xl w-full mx-auto p-2 md:p-4 space-y-3">
-        {MOCK_FEED.map((item) => (
-          <div
+      <div className="flex-1 max-w-3xl w-full mx-auto p-4 md:p-6 space-y-6">
+        <div className="mb-8 mt-2">
+          <h1 className="text-3xl font-bold tracking-tight text-zinc-900 dark:text-zinc-50 mb-2">{t.feed.title}</h1>
+          <p className="text-zinc-500 dark:text-zinc-400 text-sm font-medium">{t.feed.subtitle}</p>
+        </div>
+
+        {MOCK_FEED.map((item, i) => (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: i * 0.05, duration: 0.4, ease: [0.23, 1, 0.32, 1] }}
             key={item.id}
-            className="bg-white dark:bg-gray-950 p-4 md:p-5 rounded-lg shadow-sm border border-gray-100 dark:border-gray-800 transition-shadow hover:shadow-md"
+            className="group bg-white dark:bg-zinc-900/80 p-5 md:p-6 rounded-2xl border border-zinc-200/80 dark:border-zinc-800/80 transition-all duration-300 hover:shadow-md hover:border-zinc-300 dark:hover:border-zinc-700"
           >
-            <h2 className="text-xl font-bold text-gray-900 dark:text-gray-100 mb-2 hover:text-blue-600 dark:hover:text-blue-400 cursor-pointer">
+            <h2 className="text-[1.35rem] leading-snug font-bold text-zinc-900 dark:text-zinc-100 mb-3 transition-colors group-hover:text-zinc-600 dark:group-hover:text-zinc-300">
               <Link href={`/feed/${item.id}`}>{item.title}</Link>
             </h2>
             
-            <div className="flex flex-col md:flex-row gap-4 mb-3">
-              <Link href={`/feed/${item.id}`} className="flex-1 text-gray-600 dark:text-gray-400 text-base leading-relaxed cursor-pointer line-clamp-3 md:line-clamp-4">
-                <span className="font-medium text-gray-900 dark:text-gray-300 mr-2">
+            <div className="flex flex-col md:flex-row gap-5 mb-4">
+              <Link href={`/feed/${item.id}`} className="flex-1 text-zinc-600 dark:text-zinc-400 text-[15px] leading-relaxed cursor-pointer line-clamp-3 md:line-clamp-4">
+                <span className="font-semibold text-zinc-900 dark:text-zinc-200 mr-2">
                   {item.author}:
                 </span>
                 {item.excerpt}
               </Link>
               {item.cover && (
-                <div className="w-full md:w-48 h-32 md:h-auto shrink-0 rounded-lg overflow-hidden relative">
+                <div className="w-full md:w-44 h-36 md:h-auto shrink-0 rounded-xl overflow-hidden relative border border-zinc-100 dark:border-zinc-800">
                   <img
                     src={item.cover}
                     alt={item.title}
-                    className="object-cover w-full h-full"
+                    className="object-cover w-full h-full transform transition-transform duration-500 group-hover:scale-105"
                   />
                 </div>
               )}
             </div>
 
-            <div className="flex items-center gap-6 text-sm text-gray-500 dark:text-gray-400 mt-4">
-              <button className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-50 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400 rounded-md font-medium hover:bg-blue-100 dark:hover:bg-blue-900/50 transition-colors">
-                <ThumbsUp size={16} />
-                <span>赞同 {item.upvotes}</span>
+            <div className="flex items-center gap-6 text-[13px] font-medium text-zinc-500 dark:text-zinc-400 mt-5 pt-4 border-t border-zinc-100 dark:border-zinc-800/60">
+              <button className="flex items-center gap-1.5 px-3 py-1.5 bg-zinc-100 dark:bg-zinc-800/60 text-zinc-700 dark:text-zinc-300 rounded-lg hover:bg-zinc-200 dark:hover:bg-zinc-800 transition-colors">
+                <ThumbsUp size={15} />
+                <span>{item.upvotes}</span>
               </button>
-              <button className="flex items-center gap-1.5 hover:text-gray-700 dark:hover:text-gray-200 transition-colors">
-                <MessageCircle size={16} />
-                <span>{item.comments} 条评论</span>
+              <button className="flex items-center gap-1.5 hover:text-zinc-900 dark:hover:text-zinc-200 transition-colors">
+                <MessageCircle size={15} />
+                <span>{item.comments}</span>
               </button>
-              <button className="flex items-center gap-1.5 hover:text-gray-700 dark:hover:text-gray-200 transition-colors">
-                <Share2 size={16} />
-                <span>分享</span>
+              <button className="flex items-center gap-1.5 hover:text-zinc-900 dark:hover:text-zinc-200 transition-colors">
+                <Share2 size={15} />
+                <span>{language === 'zh' ? '分享' : 'Share'}</span>
               </button>
-              <button className="flex items-center gap-1.5 hover:text-gray-700 dark:hover:text-gray-200 transition-colors ml-auto">
-                <Star size={16} />
-                <span>收藏</span>
+              <button className="flex items-center gap-1.5 hover:text-zinc-900 dark:hover:text-zinc-200 transition-colors ml-auto">
+                <Star size={15} />
+                <span>{language === 'zh' ? '收藏' : 'Save'}</span>
               </button>
             </div>
-          </div>
+          </motion.div>
         ))}
       </div>
     </div>
